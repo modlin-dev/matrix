@@ -11,9 +11,9 @@ use colored::*;
 use libsql::{Builder, Connection, de};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, env, net::SocketAddr, sync::Arc, u64};
-use tokio::io::Result;
 use tokio::sync::Mutex;
 use tokio::time::{Duration, sleep};
+use tokio::{io::Result, net::TcpListener};
 
 #[derive(Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -382,7 +382,6 @@ async fn main() -> Result<()> {
                                             }),
                                         ).into_response()
                                     }).put(|Path((user_id, key_name)): Path<(String, String)>, State(matrix): State<Arc<MatrixClient>>| async move {
-                                        matrix.update_profile(user_id, UpdateUser { displayname: (), avatar_url: () });
                                         "{}"
                                     }),
                                 ).with_state(Arc::new(matrix)),
@@ -426,14 +425,16 @@ async fn main() -> Result<()> {
             logger,
         ));
 
-    let hostname = env::var("HOST").unwrap_or("127.0.0.1".to_string());
-    let port: u16 = env::var("PORT")
+    dotenvy::dotenv().ok();
+
+    let hostname = env::var("HOSTNAME").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let port = env::var("port")
         .ok()
-        .and_then(|s| s.parse::<u16>().ok())
+        .and_then(|p| p.parse::<u16>().ok())
         .unwrap_or(3000);
     let address = format!("{hostname}:{port}");
 
-    let listener = tokio::net::TcpListener::bind(&address).await?;
+    let listener = TcpListener::bind(&address).await?;
     println!("Listening to {address}...");
     axum::serve(
         listener,
